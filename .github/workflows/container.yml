@@ -30,4 +30,3 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
         run: |
           make push-container
-          make push-quay-container

@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   goreleaser:
+    name: Goreleaer
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
