@@ -6,6 +6,7 @@ require (
 	github.com/alecthomas/kong v0.2.17
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
 	github.com/go-kit/log v0.2.0
+	github.com/oklog/run v1.1.0
 )
 
 require (

@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 
+	"kafkaques/consumer"
+	"kafkaques/kafkaques"
+	"kafkaques/producer"
+
 	"github.com/alecthomas/kong"
 	"github.com/common-nighthawk/go-figure"
 	"github.com/go-kit/log/level"
-
-	"kafkaques/kafkaques"
-	"kafkaques/producer"
+	"github.com/oklog/run"
 )
 
 var (
@@ -22,12 +24,17 @@ var (
 
 type flags struct {
 	LogLevel string `default:"info" enum:"error,warn,info,debug" help:"log level."`
+
+	Produce struct {
+	} `cmd:"" help:"Produce messages"`
+
+	Consume struct {
+	} `cmd:"" help:"Consumer messages"`
 }
 
 func main() {
-	ctx := context.Background()
 	flags := &flags{}
-	kong.Parse(flags)
+	kongCtx := kong.Parse(flags)
 
 	serverStr := figure.NewColorFigure("Kafkaques", "roman", "yellow", true)
 	serverStr.Print()
@@ -41,9 +48,33 @@ func main() {
 		"config", fmt.Sprint(flags),
 	)
 
-	err := producer.Run(ctx)
-	if err != nil {
-		level.Error(logger).Log("msg", "Program exited with error", "err", err)
+	var (
+		g run.Group
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	switch kongCtx.Command() {
+	case "produce":
+		g.Add(func() error {
+			return producer.Run(ctx)
+		}, func(error) {
+			cancel()
+		})
+	case "consumer":
+		g.Add(func() error {
+			return consumer.Run(ctx)
+		}, func(error) {
+			cancel()
+		})
+
+	default:
+		level.Error(logger).Log("err", "unknown command", "cmd", kongCtx.Command())
+		os.Exit(1)
+	}
+
+	g.Add(run.SignalHandler(ctx, os.Interrupt, os.Kill))
+	if err := g.Run(); err != nil {
+		level.Error(logger).Log("msg", "program exited with error", "err", err)
 		os.Exit(1)
 	}
 
