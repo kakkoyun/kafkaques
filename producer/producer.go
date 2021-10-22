@@ -7,14 +7,12 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-
-	"github.com/kakkoyun/kafkaques/kafkaques"
 )
 
-func Run(ctx context.Context, logger log.Logger, flags kafkaques.ProducerFlags) error {
+func Run(ctx context.Context, logger log.Logger, broker, topic string) error {
 	logger = log.With(logger, "component", "producer")
 
-	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": flags.Broker})
+	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": broker})
 	if err != nil {
 		return fmt.Errorf("failed to create producer: %w", err)
 	}
@@ -22,7 +20,10 @@ func Run(ctx context.Context, logger log.Logger, flags kafkaques.ProducerFlags) 
 
 	level.Info(logger).Log("msg", "producer created", "producer", p)
 
+	errChan := make(chan error)
 	go func() {
+		defer close(errChan)
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -46,6 +47,12 @@ func Run(ctx context.Context, logger log.Logger, flags kafkaques.ProducerFlags) 
 							"headers", m.Headers,
 						)
 					}
+				case kafka.Error:
+					level.Error(logger).Log("msg", "failed to send", "code", m.Code(), "err", m)
+					if m.Code() == kafka.ErrAllBrokersDown {
+						errChan <- fmt.Errorf("failed to continue, code %s: %v", m.Code(), m)
+						return
+					}
 				default:
 					level.Warn(logger).Log("msg", "ignored", "message", e)
 				}
@@ -58,11 +65,15 @@ func Run(ctx context.Context, logger log.Logger, flags kafkaques.ProducerFlags) 
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case err := <-errChan:
+			return err
 		default:
 			value := fmt.Sprintf("Hello! count: %d", i)
 			p.ProduceChannel() <- &kafka.Message{
-				TopicPartition: kafka.TopicPartition{Topic: &flags.Topic,
-					Partition: kafka.PartitionAny},
+				TopicPartition: kafka.TopicPartition{
+					Topic:     &topic,
+					Partition: kafka.PartitionAny,
+				},
 				Value: []byte(value),
 			}
 		}

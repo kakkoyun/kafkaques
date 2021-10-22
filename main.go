@@ -3,16 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/kakkoyun/kafkaques/consumer"
 	"github.com/kakkoyun/kafkaques/kafkaques"
 	"github.com/kakkoyun/kafkaques/producer"
+	"github.com/metalmatze/signal/internalserver"
 
 	"github.com/alecthomas/kong"
 	"github.com/common-nighthawk/go-figure"
 	"github.com/go-kit/log/level"
+	"github.com/metalmatze/signal/healthcheck"
 	"github.com/oklog/run"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -22,10 +26,22 @@ var (
 	builtBy string
 )
 
-
+type Flags struct {
+	LogLevel string `default:"info" enum:"error,warn,info,debug" help:"log level."`
+	Port     string `default:":8080" help:"Port string for server"`
+	Produce  struct {
+		Broker string `kong:"required,help='Broker.'"`
+		Topic  string `kong:"required,arg,name='topic',help='Topic push messages to.'"`
+	} `cmd:"" help:"Consumer messages"`
+	Consume struct {
+		Broker string   `kong:"required,help='Broker.'"`
+		Group  string   `kong:"required,help='Group.'"`
+		Topics []string `kong:"required,arg,name='topics',help='Topics to listen'"`
+	} `cmd:"" help:"Produce messages"`
+}
 
 func main() {
-	flags := &kafkaques.Flags{}
+	flags := &Flags{}
 	kongCtx := kong.Parse(flags)
 
 	serverStr := figure.NewColorFigure("Kafkaques", "roman", "yellow", true)
@@ -40,21 +56,31 @@ func main() {
 		"config", fmt.Sprint(flags),
 	)
 
-	var (
-		g run.Group
+	registry := prometheus.NewRegistry()
+	healthchecks := healthcheck.NewMetricsHandler(healthcheck.NewHandler(), registry)
+	h := internalserver.NewHandler(
+		internalserver.WithHealthchecks(healthchecks),
+		internalserver.WithPrometheusRegistry(registry),
+		internalserver.WithPProf(),
 	)
+	s := http.Server{
+		Addr:    flags.Port,
+		Handler: h,
+	}
+
+	var g run.Group
 
 	ctx, cancel := context.WithCancel(context.Background())
 	switch kongCtx.Command() {
-	case "produce <broker> <topic>":
+	case "produce <topic>":
 		g.Add(func() error {
-			return producer.Run(ctx, logger, flags.Produce)
+			return producer.Run(ctx, logger, flags.Produce.Broker, flags.Produce.Topic)
 		}, func(error) {
 			cancel()
 		})
-	case "consumer <broker> <group> <topics..>":
+	case "consume <topics>":
 		g.Add(func() error {
-			return consumer.Run(ctx, logger, flags.Consume)
+			return consumer.Run(ctx, logger, flags.Consume.Broker, flags.Consume.Group, flags.Consume.Topics...)
 		}, func(error) {
 			cancel()
 		})
@@ -63,6 +89,13 @@ func main() {
 		level.Error(logger).Log("err", "unknown command", "cmd", kongCtx.Command())
 		os.Exit(1)
 	}
+
+	g.Add(func() error {
+		level.Info(logger).Log("msg", "starting internal HTTP server", "address", s.Addr)
+		return s.ListenAndServe()
+	}, func(err error) {
+		_ = s.Shutdown(context.Background())
+	})
 
 	g.Add(run.SignalHandler(ctx, os.Interrupt, os.Kill))
 	if err := g.Run(); err != nil {

@@ -7,16 +7,14 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-
-	"github.com/kakkoyun/kafkaques/kafkaques"
 )
 
-func Run(ctx context.Context, logger log.Logger, flags kafkaques.ConsumerFlags) error {
+func Run(ctx context.Context, logger log.Logger, broker, group string, topics ...string) error {
 	logger = log.With(logger, "component", "consumer")
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": flags.Broker,
+		"bootstrap.servers": broker,
 		"broker.address.family": "v4",
-		"group.id":              flags.Group,
+		"group.id":              group,
 		"session.timeout.ms":    6000,
 		"auto.offset.reset":     "earliest",
 	})
@@ -27,7 +25,7 @@ func Run(ctx context.Context, logger log.Logger, flags kafkaques.ConsumerFlags) 
 
 	level.Info(logger).Log("msg", "consumer created", "consumer", c)
 
-	if err := c.SubscribeTopics(flags.Topics, nil); err != nil {
+	if err := c.SubscribeTopics(topics, nil); err != nil {
 		return err
 	}
 
