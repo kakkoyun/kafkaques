@@ -27,7 +27,7 @@ test:
 
 .PHONY: container
 container: kafkaques
-	docker build -t $(CONTAINER_IMAGE) .
+	docker build -t $(CONTAINER_IMAGE) --build-arg VERSION=$(VERSION) .
 
 .PHONY: push-container
 push-container:
