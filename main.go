@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"kafkaques/consumer"
-	"kafkaques/kafkaques"
-	"kafkaques/producer"
+	"github.com/kakkoyun/kafkaques/consumer"
+	"github.com/kakkoyun/kafkaques/kafkaques"
+	"github.com/kakkoyun/kafkaques/producer"
 
 	"github.com/alecthomas/kong"
 	"github.com/common-nighthawk/go-figure"
@@ -22,18 +22,10 @@ var (
 	builtBy string
 )
 
-type flags struct {
-	LogLevel string `default:"info" enum:"error,warn,info,debug" help:"log level."`
 
-	Produce struct {
-	} `cmd:"" help:"Produce messages"`
-
-	Consume struct {
-	} `cmd:"" help:"Consumer messages"`
-}
 
 func main() {
-	flags := &flags{}
+	flags := &kafkaques.Flags{}
 	kongCtx := kong.Parse(flags)
 
 	serverStr := figure.NewColorFigure("Kafkaques", "roman", "yellow", true)
@@ -54,15 +46,15 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	switch kongCtx.Command() {
-	case "produce":
+	case "produce <broker> <topic>":
 		g.Add(func() error {
-			return producer.Run(ctx)
+			return producer.Run(ctx, logger, flags.Produce)
 		}, func(error) {
 			cancel()
 		})
-	case "consumer":
+	case "consumer <broker> <group> <topics..>":
 		g.Add(func() error {
-			return consumer.Run(ctx)
+			return consumer.Run(ctx, logger, flags.Consume)
 		}, func(error) {
 			cancel()
 		})

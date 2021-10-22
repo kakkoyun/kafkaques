@@ -7,12 +7,12 @@ LDFLAGS="-X main.version=$(VERSION)"
 build: bin/kafkaques
 
 bin/kafkaques: deps main.go
-	CGO_ENABLED=0 go build -ldflags=$(LDFLAGS) -o $@ main.go
+	mkdir -p bin
+	go build -a -ldflags=$(LDFLAGS) -o $@ .
 
 .PHONY: clean
 clean:
 	rm -rf bin
-	rm -rf ui/packages/app/web/dist
 
 .PHONY: deps
 deps: go.mod
