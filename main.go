@@ -77,7 +77,7 @@ func main() {
 	switch kongCtx.Command() {
 	case "produce <topic>":
 		g.Add(func() error {
-			brokers, err := resolve(ctx, logger, flags.Consume.Broker)
+			brokers, err := resolve(ctx, logger, flags.Produce.Broker)
 			if err != nil {
 				return err
 			}

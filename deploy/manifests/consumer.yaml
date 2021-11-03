@@ -28,7 +28,7 @@ spec:
             - --broker=one-node-cluster-0.one-node-cluster.chat-with-me.svc
             - --group=my-group
             - chat-rooms
-          image: ghcr.io/kakkoyun/kafkaques:v0.1.1
+          image: ghcr.io/kakkoyun/kafkaques:v0.1.2
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 10
