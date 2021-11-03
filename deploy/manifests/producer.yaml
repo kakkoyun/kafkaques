@@ -25,9 +25,10 @@ spec:
             - kafkaques
             - produce
             - --log-level=debug
-            - --broker=one-node-cluster-0.one-node-cluster.chat-with-me.svc.cluster.local:9092
+            - --broker=one-node-cluster-0.one-node-cluster.chat-with-me.svc.cluster.local
             - chat-rooms
-          image: ghcr.io/kakkoyun/kafkaques:v0.1.0
+          image: ghcr.io/kakkoyun/kafkaques:v0.1.1
+          imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 10
             httpGet:

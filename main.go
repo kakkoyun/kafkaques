@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/kakkoyun/kafkaques/consumer"
 	"github.com/kakkoyun/kafkaques/kafkaques"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/common-nighthawk/go-figure"
+	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/metalmatze/signal/healthcheck"
 	"github.com/oklog/run"
@@ -74,13 +77,21 @@ func main() {
 	switch kongCtx.Command() {
 	case "produce <topic>":
 		g.Add(func() error {
-			return producer.Run(ctx, logger, flags.Produce.Broker, flags.Produce.Topic)
+			brokers, err := resolve(ctx, logger, flags.Consume.Broker)
+			if err != nil {
+				return err
+			}
+			return producer.Run(ctx, logger, brokers, flags.Produce.Topic)
 		}, func(error) {
 			cancel()
 		})
 	case "consume <topics>":
 		g.Add(func() error {
-			return consumer.Run(ctx, logger, flags.Consume.Broker, flags.Consume.Group, flags.Consume.Topics...)
+			brokers, err := resolve(ctx, logger, flags.Consume.Broker)
+			if err != nil {
+				return err
+			}
+			return consumer.Run(ctx, logger, brokers, flags.Consume.Group, flags.Consume.Topics...)
 		}, func(error) {
 			cancel()
 		})
@@ -104,4 +115,21 @@ func main() {
 	}
 
 	level.Info(logger).Log("msg", "exited")
+}
+
+func resolve(ctx context.Context, logger log.Logger, addr string) (string, error) {
+	ips, err := net.DefaultResolver.LookupIP(ctx, "ip4", addr)
+	if err != nil {
+		return "", fmt.Errorf("could not get IPs: %w", err)
+	}
+	var res strings.Builder
+	for i, ip := range ips {
+		s := ip.String()
+		fmt.Printf("%s. IN A %s\n", addr, s)
+		res.WriteString(s)
+		if i != len(ips)-1 {
+			res.WriteString(",")
+		}
+	}
+	return res.String(), nil
 }

@@ -9,10 +9,10 @@ import (
 	"github.com/go-kit/log/level"
 )
 
-func Run(ctx context.Context, logger log.Logger, broker, topic string) error {
+func Run(ctx context.Context, logger log.Logger, brokers, topic string) error {
 	logger = log.With(logger, "component", "producer")
 
-	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": broker})
+	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokers})
 	if err != nil {
 		return fmt.Errorf("failed to create producer: %w", err)
 	}

@@ -9,10 +9,10 @@ import (
 	"github.com/go-kit/log/level"
 )
 
-func Run(ctx context.Context, logger log.Logger, broker, group string, topics ...string) error {
+func Run(ctx context.Context, logger log.Logger, brokers string, group string, topics ...string) error {
 	logger = log.With(logger, "component", "consumer")
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": broker,
+		"bootstrap.servers": brokers,
 		"broker.address.family": "v4",
 		"group.id":              group,
 		"session.timeout.ms":    6000,
