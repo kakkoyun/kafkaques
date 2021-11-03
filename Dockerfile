@@ -15,12 +15,13 @@ COPY --chown=nobody:nogroup ./producer ./producer
 COPY --chown=nobody:nogroup ./consumer ./consumer
 COPY --chown=nobody:nogroup ./kafkaques ./kafkaques
 
-RUN go build -a -o kafkaques .
+RUN mkdir bin
+RUN go build -trimpath -ldflags='-linkmode external -w -extldflags "-static" -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=kakkoyun' -a -o ./bin/kafkaques .
 
 FROM alpine:3.14
 
 USER nobody
 
-COPY --chown=0:0 --from=builder /app/kafkaques /kafkaques
+COPY --chown=0:0 --from=builder /app/bin/kafkaques /bin/kafkaques
 
-CMD ["/kafkaques"]
+CMD ["kafkaques"]

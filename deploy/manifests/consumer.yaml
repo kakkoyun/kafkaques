@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - args:
-            - /kafkaques
+            - kafkaques
             - consume
             - --log-level=debug
             - --broker=one-node-cluster-0.one-node-cluster.chat-with-me.svc.cluster.local:9092
