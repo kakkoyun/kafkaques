@@ -25,7 +25,7 @@ spec:
             - kafkaques
             - produce
             - --log-level=debug
-            - --broker=one-node-cluster-0.one-node-cluster.chat-with-me.svc.cluster.local
+            - --broker=one-node-cluster-0.one-node-cluster.chat-with-me.svc
             - chat-rooms
           image: ghcr.io/kakkoyun/kafkaques:v0.1.1
           imagePullPolicy: Always
