@@ -5,7 +5,7 @@ metadata:
     app.kubernetes.io/component: demo
     app.kubernetes.io/instance: kafkaques
     app.kubernetes.io/name: kafkaques
-  name: kafkaques
+  name: kafkaques-consumer
 spec:
   replicas: 1
   selector:
