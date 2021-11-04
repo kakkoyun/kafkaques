@@ -43,27 +43,6 @@ func Run(ctx context.Context, logger log.Logger, brokers []string, topic string)
 			val := fmt.Sprintf("Hello! count: %d", i)
 			rec := kgo.StringRecord(val)
 
-			// p.Produce(ctx, rec, func(_ *Record, err error) {
-			// 	// defer wg.Done()
-
-			// 	if err != nil {
-			// 		level.Error(logger).Log(
-			// 			"msg", "failed to deliver message",
-			// 			"topic", rec.Topic,
-			// 			"partition", rec.Partition,
-			// 			"headers", rec.Headers,
-			// 			"err", err,
-			// 		)
-			// 	} else {
-			// 		level.Info(logger).Log(
-			// 			"msg", "message delivered",
-			// 			"topic", rec.Topic,
-			// 			"partition", rec.Partition,
-			// 			"headers", rec.Headers,
-			// 		)
-			// 	}
-			// })
-
 			if err := client.ProduceSync(ctx, rec).FirstErr(); err != nil {
 				level.Error(logger).Log(
 					"msg", "failed to deliver message",
