@@ -2,59 +2,68 @@ package consumer
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
-func Run(ctx context.Context, logger log.Logger, brokers string, group string, topics ...string) error {
+func Run(ctx context.Context, logger log.Logger, brokers []string, group string, topic string) error {
 	logger = log.With(logger, "component", "consumer")
-	c, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": brokers,
-		"broker.address.family": "v4",
-		"group.id":              group,
-		"session.timeout.ms":    6000,
-		"auto.offset.reset":     "earliest",
-	})
+	opts := []kgo.Opt{
+		kgo.SeedBrokers(brokers...),
+		kgo.ConsumeTopics(topic),
+		kgo.ClientID("kafkaques"),
+		kgo.RetryTimeout(5 * time.Second),
+		// kgo.DisableAutoCommit(),
+	}
+	if group != "" {
+		opts = append(opts, kgo.ConsumerGroup(group))
+	}
+	client, err := kgo.NewClient(opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create consumer: %w", err)
 	}
-	defer c.Close()
+	defer client.Close()
 
-	level.Info(logger).Log("msg", "consumer created", "consumer", c)
+	level.Info(logger).Log("msg", "consumer created")
+	defer level.Info(logger).Log("msg", "consumer exited")
 
-	if err := c.SubscribeTopics(topics, nil); err != nil {
-		return err
-	}
-
-outer:
+consumerLoop:
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			ev := c.Poll(100)
-			if ev == nil {
-				continue
+			fetches := client.PollFetches(ctx)
+			if fetches.IsClientClosed() {
+				return errors.New("client closed")
 			}
 
-			switch e := ev.(type) {
-			case *kafka.Message:
-				level.Info(logger).Log(
-					"msg", "message received",
-					"partition", e.TopicPartition,
-					"message", string(e.Value),
-					"headers", e.Headers,
+			for _, err := range fetches.Errors() {
+				level.Error(logger).Log(
+					"msg", "failed to consume",
+					"topic", err.Topic,
+					"partition", err.Partition,
+					"err", err,
 				)
-			case kafka.Error:
-				level.Error(logger).Log("msg", "failed to receive", "code", e.Code(), "err", e)
-				if e.Code() == kafka.ErrAllBrokersDown {
-					break outer
-				}
-			default:
-				level.Warn(logger).Log("msg", "ignored", "message", e)
+				break consumerLoop
+			}
+
+			iter := fetches.RecordIter()
+			for !iter.Done() {
+				rec := iter.Next()
+				level.Info(logger).Log(
+					"msg", "consumed record",
+					"topic", rec.Topic,
+					"partition", rec.Partition,
+					"offset", rec.Offset,
+					"headers", fmt.Sprintf("%+v", rec.Headers),
+					"message", string(rec.Value),
+				)
 			}
 		}
 	}

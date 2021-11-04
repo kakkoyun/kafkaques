@@ -5,11 +5,17 @@ go 1.17
 require (
 	github.com/alecthomas/kong v0.2.17
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
-	github.com/confluentinc/confluent-kafka-go v1.7.0
 	github.com/go-kit/log v0.2.0
 	github.com/metalmatze/signal v0.0.0-20210307161603-1c9aa721a97a
 	github.com/oklog/run v1.1.0
 	github.com/prometheus/client_golang v1.11.0
+)
+
+require (
+	github.com/klauspost/compress v1.13.5 // indirect
+	github.com/pierrec/lz4/v4 v4.1.8 // indirect
+	github.com/twmb/franz-go/pkg/kmsg v0.0.0-20210914042331-106aef61b693 // indirect
+	github.com/twmb/go-rbtree v1.0.0 // indirect
 )
 
 require (
@@ -22,6 +28,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
-	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40 // indirect
+	github.com/twmb/franz-go v1.2.2
+	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
 	google.golang.org/protobuf v1.26.0-rc.1 // indirect
 )

@@ -25,10 +25,9 @@ spec:
             - kafkaques
             - consume
             - --log-level=debug
-            - --broker=one-node-cluster-0.one-node-cluster.chat-with-me.svc
-            - --group=my-group
-            - chat-rooms
-          image: ghcr.io/kakkoyun/kafkaques:v0.1.2
+            - --brokers=one-node-cluster-0.one-node-cluster.chat-with-me.svc:9092
+            - parca_chat
+          image: ghcr.io/kakkoyun/kafkaques:v0.2.0
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 10

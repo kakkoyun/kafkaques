@@ -10,13 +10,17 @@ WORKDIR /app
 COPY go.mod go.sum /app/
 RUN go mod download -modcacherw
 
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
+
 COPY --chown=nobody:nogroup ./main.go ./main.go
 COPY --chown=nobody:nogroup ./producer ./producer
 COPY --chown=nobody:nogroup ./consumer ./consumer
 COPY --chown=nobody:nogroup ./kafkaques ./kafkaques
 
 RUN mkdir bin
-RUN go build -trimpath -ldflags='-linkmode external -w -extldflags "-static" -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=kakkoyun' -a -o ./bin/kafkaques .
+RUN go build -trimpath -ldflags='--X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=kakkoyun' -a -o ./bin/kafkaques .
 
 FROM alpine:3.14
 

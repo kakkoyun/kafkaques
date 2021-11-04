@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/kakkoyun/kafkaques/consumer"
 	"github.com/kakkoyun/kafkaques/kafkaques"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/common-nighthawk/go-figure"
-	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/metalmatze/signal/healthcheck"
 	"github.com/oklog/run"
@@ -31,15 +29,15 @@ var (
 
 type Flags struct {
 	LogLevel string `default:"info" enum:"error,warn,info,debug" help:"log level."`
-	Port     string `default:":8080" help:"Port string for server"`
+	Address     string `default:":8080" help:"Address string for internal server"`
 	Produce  struct {
-		Broker string `kong:"required,help='Broker.'"`
-		Topic  string `kong:"required,arg,name='topic',help='Topic push messages to.'"`
+		Brokers []string `kong:"required,help='Brokers.'"`
+		Topic   string   `kong:"required,arg,name='topic',help='Topic push messages to.'"`
 	} `cmd:"" help:"Consumer messages"`
 	Consume struct {
-		Broker string   `kong:"required,help='Broker.'"`
-		Group  string   `kong:"required,help='Group.'"`
-		Topics []string `kong:"required,arg,name='topics',help='Topics to listen'"`
+		Brokers []string `kong:"required,help='Brokers.'"`
+		Topic   string   `kong:"required,arg,name='topic',help='Topic to receive messages from.'"`
+		Group   string   `kong:"help='Group.'"`
 	} `cmd:"" help:"Produce messages"`
 }
 
@@ -67,7 +65,7 @@ func main() {
 		internalserver.WithPProf(),
 	)
 	s := http.Server{
-		Addr:    flags.Port,
+		Addr:    flags.Address,
 		Handler: h,
 	}
 
@@ -77,21 +75,13 @@ func main() {
 	switch kongCtx.Command() {
 	case "produce <topic>":
 		g.Add(func() error {
-			brokers, err := resolve(ctx, logger, flags.Produce.Broker)
-			if err != nil {
-				return err
-			}
-			return producer.Run(ctx, logger, brokers, flags.Produce.Topic)
+			return producer.Run(ctx, logger, flags.Produce.Brokers, flags.Produce.Topic)
 		}, func(error) {
 			cancel()
 		})
-	case "consume <topics>":
+	case "consume <topic>":
 		g.Add(func() error {
-			brokers, err := resolve(ctx, logger, flags.Consume.Broker)
-			if err != nil {
-				return err
-			}
-			return consumer.Run(ctx, logger, brokers, flags.Consume.Group, flags.Consume.Topics...)
+			return consumer.Run(ctx, logger, flags.Consume.Brokers, flags.Consume.Group, flags.Consume.Topic)
 		}, func(error) {
 			cancel()
 		})
@@ -110,26 +100,14 @@ func main() {
 
 	g.Add(run.SignalHandler(ctx, os.Interrupt, os.Kill))
 	if err := g.Run(); err != nil {
-		level.Error(logger).Log("msg", "program exited with error", "err", err)
+		var e run.SignalError
+		if errors.As(err, &e) {
+			level.Error(logger).Log("msg", "program exited with signal", "err", err, "signal", e.Signal)
+		} else {
+			level.Error(logger).Log("msg", "program exited with error", "err", err)
+		}
 		os.Exit(1)
 	}
 
 	level.Info(logger).Log("msg", "exited")
-}
-
-func resolve(ctx context.Context, logger log.Logger, addr string) (string, error) {
-	ips, err := net.DefaultResolver.LookupIP(ctx, "ip4", addr)
-	if err != nil {
-		return "", fmt.Errorf("could not get IPs: %w", err)
-	}
-	var res strings.Builder
-	for i, ip := range ips {
-		s := ip.String()
-		fmt.Printf("%s. IN A %s\n", addr, s)
-		res.WriteString(s)
-		if i != len(ips)-1 {
-			res.WriteString(",")
-		}
-	}
-	return res.String(), nil
 }
